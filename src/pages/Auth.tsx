@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 type Step = "phone" | "code" | "name";
 
 const COUNTRY_CODE = "+7";
+const AUTH_URL = "https://functions.poehali.dev/afae84b8-7f4c-4d69-8732-b106aee7a9e7";
 
 interface AuthProps {
   onAuth: () => void;
@@ -18,6 +19,7 @@ export default function Auth({ onAuth }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [error, setError] = useState("");
 
   const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
   const phoneRef = useRef<HTMLInputElement>(null);
@@ -46,15 +48,57 @@ export default function Auth({ onAuth }: AuthProps) {
     return result;
   };
 
-  const handlePhoneSubmit = () => {
+  const fullPhone = () => `${COUNTRY_CODE}${phone.replace(/\D/g, "")}`;
+
+  const handlePhoneSubmit = async () => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) {
       setShake(true);
       setTimeout(() => setShake(false), 500);
       return;
     }
+    setError("");
     setLoading(true);
-    setTimeout(() => { setLoading(false); setStep("code"); }, 800);
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "request_code", phone: fullPhone() })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Ошибка");
+      setStep("code");
+    } catch (e) {
+      setError((e as Error).message || "Не удалось отправить запрос");
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async (fullCode: string) => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify_code", phone: fullPhone(), code: fullCode })
+      });
+      const data = await res.json();
+      if (res.status === 401 || !data.ok) {
+        setError("Неверный код");
+        setShake(true);
+        setTimeout(() => { setShake(false); setCode(["","","","",""]); codeRefs.current[0]?.focus(); }, 500);
+        return;
+      }
+      onAuth();
+    } catch {
+      setError("Ошибка сети");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCodeChange = (idx: number, val: string) => {
@@ -62,15 +106,10 @@ export default function Auth({ onAuth }: AuthProps) {
     const next = [...code];
     next[idx] = val;
     setCode(next);
+    setError("");
     if (val && idx < 4) codeRefs.current[idx + 1]?.focus();
     if (next.every(c => c !== "") && next.join("").length === 5) {
-      setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-        // Demo: code 12345 = existing user, else register
-        if (next.join("") === "12345") onAuth();
-        else setStep("name");
-      }, 700);
+      verifyCode(next.join(""));
     }
   };
 
@@ -150,6 +189,10 @@ export default function Auth({ onAuth }: AuthProps) {
                 {loading ? <Icon name="Loader2" size={18} className="animate-spin" /> : <>Продолжить <Icon name="ArrowRight" size={16} /></>}
               </button>
 
+              {error && (
+                <div className="mt-3 text-xs text-red-400 text-center">{error}</div>
+              )}
+
               <p className="text-center text-xs text-[hsl(215,15%,40%)] mt-5 leading-relaxed">
                 Нажимая «Продолжить», вы соглашаетесь с{" "}
                 <span className="text-[hsl(42,85%,58%)] cursor-pointer hover:underline">условиями использования</span>
@@ -198,7 +241,13 @@ export default function Auth({ onAuth }: AuthProps) {
                 )}
               </div>
 
-              <p className="text-center text-xs text-[hsl(215,15%,35%)] mt-4">Введите демо-код <span className="text-white font-mono">1 2 3 4 5</span> для входа</p>
+              {error && (
+                <div className="text-center text-xs text-red-400 mt-3">{error}</div>
+              )}
+
+              <p className="text-center text-xs text-[hsl(215,15%,35%)] mt-4">
+                Код выдаёт администратор. Попросите его сообщить вам 5 цифр.
+              </p>
             </div>
           )}
 

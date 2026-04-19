@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "Request code for phone",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "request_code", "phone": "+79990001122"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Verify with wrong code",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "verify_code", "phone": "+79990001122", "code": "99999"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing phone",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "request_code"},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

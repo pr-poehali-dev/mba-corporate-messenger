@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Reject without admin key",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Accept with valid admin key",
+      "method": "GET",
+      "path": "/",
+      "headers": {"X-Admin-Key": "mba-admin-2026"},
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
